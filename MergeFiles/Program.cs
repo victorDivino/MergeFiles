@@ -9,29 +9,55 @@ namespace MergeFiles
     {
         static void Main(string[] args)
         {
-            var searchPath = args[0];
-            var fileOutput = args[1];
+            string searchPath;
+            string fileOutput;
 
-            if (File.Exists(fileOutput))
-                File.Delete(fileOutput);
-
-            Console.WriteLine("Searching files");
-
-            var files = Directory.EnumerateFiles(searchPath, "*.txt", SearchOption.AllDirectories)
-                .Select(fn => new FileInfo(fn)).Where(fi => fi.Length > 0);
-
-            Console.WriteLine("Start Merge");
-
-            foreach (var file in files)
+            if (args.Length == 2)
             {
-                Console.WriteLine($"Merged: {file.FullName}");
-                File.AppendAllLines(fileOutput, File.ReadLines(file.FullName));
+                searchPath = args[0];
+                fileOutput = args[1];
+            }
+            else
+            {
+                Console.WriteLine("Enter search path:");
+                searchPath = Console.ReadLine();
+
+                Console.WriteLine("Enter output file path:");
+                fileOutput = Console.ReadLine();
             }
 
-            Console.WriteLine("Finished");
-            Console.WriteLine("Hit ENTER to open output file.");
-            Console.ReadLine();
-            Process.Start(fileOutput);
+            Console.WriteLine("Searching files...");
+
+            try
+            {
+                var enumerable = Directory.EnumerateFiles(searchPath, "*.txt", SearchOption.AllDirectories)
+                    .SelectMany(File.ReadLines)
+                    .Select(s => s.Trim())
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Distinct()
+                    .OrderBy(x => x);
+
+                Kurukuru.Spinner.Start("Start Merge", spinner =>
+                {
+                    var cont = 0;
+                    var sw = new StreamWriter(fileOutput);
+
+                    foreach (var s in enumerable)
+                    {
+                        spinner.Text = $"Lines merged: {++cont}";
+                        sw.WriteLine(s);
+                    }
+                });
+
+                Console.WriteLine("Hit ENTER to open output file.");
+                Console.ReadLine();
+                Process.Start(fileOutput);
+            }
+            catch (Exception e)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine(e.Message);
+            }
         }
     }
 }
